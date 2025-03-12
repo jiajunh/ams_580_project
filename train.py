@@ -18,9 +18,13 @@ if __name__ == '__main__':
     data_path = os.path.join(args.data_dir, "train.csv")
 
     data = pd.read_csv(data_path)
-    cols = data.columns.tolist()
-    print("Colomn names: ", cols)
-    print("Data types: ", data.dtypes)
-    print("Missing data", data.isnull().sum())
+    # cols = data.columns.tolist()
+    # print("Colomn names: ", cols)
+    # print("Data types: ", data.dtypes)
+    # print("Missing data", data.isnull().sum())
     print("Data shape", data.shape)
-    # print(data[cols[1]].value_counts()['?'])
+
+    df = preprocess(data)
+    print(df.shape)
+
+    
