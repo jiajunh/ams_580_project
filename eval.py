@@ -3,7 +3,7 @@ import argparse
 import numpy as np
 import pandas as pd
 
-from utils import set_seed
+from utils import set_seed, preprocess
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -15,8 +15,8 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
     set_seed(args.seed)
-    data_path = os.path.join(args.data_dir, "train.csv")
-    print(data_path)
+    data_path = os.path.join(args.data_dir, "test.csv")
 
     data = pd.read_csv(data_path)
-    print(data.head())
+    print("Missing data", data.isnull().sum())
+    print("Data shape", data.shape)
