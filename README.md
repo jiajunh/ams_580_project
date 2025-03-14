@@ -12,7 +12,7 @@
 ## proprocesing
 
 * Three cols has " ?", not only "?", is missing values, so for every col, if the data type is str, first strip it.
-* ‘education’ column and ‘education-num’ column is identical, so actually we can just neglect one, I choose to drop ‘education’
+* ‘education’ column and ‘education-num’ column is identical, so actually we can just neglect one, I choose to drop ‘education-num’
 
 * ‘fnlwgt’ has a very biased distribution, maybe use log scale is better
 * ‘capital gain / capital loss’ has large range, so need to scale down, use log
