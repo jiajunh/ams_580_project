@@ -1,3 +1,5 @@
+import os
+import pickle
 import torch
 import random
 import numpy as np
@@ -135,7 +137,7 @@ def preprocess(df, args):
         "Other": "others",
     }
 
-    if args.train_or_test == "train":
+    if args.pre_data == "train":
         print("*"*20, "Preprocess train data", "*"*20)
     else:
         print("*"*20, "Preprocess test data", "*"*20)
@@ -204,3 +206,41 @@ def compute_scores(y, pred):
     # print(f"Confusion Matrix: TP={TP}, FN={FN}, FP={FP}, TN={TN}")
     print(f"Accuracy: {accuracy:.4f}, Sensitivity: {recall:.4f}, Specificity: {specificity:.4f}")
     return cm, precision, recall, specificity, accuracy
+
+
+def update_best_model(model_cfg, model_name, model, scores, args):
+    cm, precision, recall, specificity, accuracy = scores
+    if model_cfg[model_name] is None or model_cfg[model_name]["acc"] < accuracy:
+        model_cfg[model_name] = {
+            "model": model,
+            "acc": accuracy,
+            "confusion_matrix": cm,
+            "precision": precision,
+            "recall": recall,
+            "specificity": specificity,
+        }
+        print(f"Model updates: current {model_name} is the best model, acc={accuracy:.4f}")
+        save_model(model_name, model, accuracy, args)
+    return model_cfg
+
+
+def save_model(model_name, model, acc, args):
+    model_suffix = {
+        "logistic_regression": ".pkl",
+        "neural_network": None,
+        "xgboost": None,
+        "random_forest": None,
+        "svm": ".pkl",
+    }
+    model_path = os.path.join(args.model_dir, model_name)
+    model_path = model_path +  f"_{int(acc*10000)}" + model_suffix[model_name]
+    if model_suffix[model_name]:
+        with open(model_path, "wb") as file:
+            pickle.dump(model, file)
+    print(f"{model_name} model has saved to {model_path}")
+
+
+def load_model(model_path):
+    with open(model_path, 'rb') as file:
+        model = pickle.load(file)
+    return model
