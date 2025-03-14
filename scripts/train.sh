@@ -10,3 +10,6 @@ python train.py \
     --merge_marital \
     --merge_gain_loss \
     --merge_race \
+    --merge_country \
+    --merge_workclass \
+    --cross_val \

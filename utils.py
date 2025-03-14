@@ -86,6 +86,17 @@ def preprocess(df, args):
         "native-country": "United-States",
     }
 
+    merge_workclass_cfg = {
+        "Private": "Private",
+        "Self-emp-not-inc": "Self-emp-not-inc",
+        "Self-emp-inc": "Self-emp-inc", 
+        "Federal-gov": "Federal-gov",
+        "Local-gov": "Local-gov", 
+        "State-gov": "State-gov",
+        "Without-pay": "no_income", 
+        "Never-worked": "no_income",
+    }
+
     merge_edu_cfg = {
         "Preschool": "before_high_school",
         "1st-4th": "before_high_school",
@@ -123,19 +134,28 @@ def preprocess(df, args):
         "Other": "others",
     }
 
+    if args.train_or_test == "train":
+        print("*"*20, "Preprocess train data", "*"*20)
+    else:
+        print("*"*20, "Preprocess test data", "*"*20)
+
     df = df.map(lambda x: x.strip() if isinstance(x, str) else x)
     df["income"] = df["income"].map({"<=50K": 0, ">50K": 1})
     df = df.drop(columns="education-num")
 
     if args.missing:
-        if args.missing == "mode":
+        if args.missing == "mode" or args.train_or_test == "test":
             for col in missing_cols:
                 print(f"{col}: Replacing missing values with mode")
                 df[col] = df[col].map(lambda x: missing_mode[col] if x == "?" else x)
-        elif args.missing == "drop":
+        elif args.missing == "drop" and args.train_or_test == "train":
             for col in missing_cols:
                 print(f"{col}: Dropping missing values")
                 df = df[df[col] != "?"]
+
+    if args.merge_workclass:
+        print("workclass: Merging workclass")
+        df["workclass"] = df["workclass"].map(lambda x: merge_workclass_cfg[x])
 
     if args.merge_edu:
         print("education: Merging education")
@@ -149,6 +169,11 @@ def preprocess(df, args):
         print("race: Merge race")
         df["race"] = df["race"].map(lambda x: merge_race_cfg[x])
 
+    if args.merge_country:
+        print("country: Merge country")
+        df["native-country"] = df["native-country"].map(
+            lambda x: "United-States" if x == "United-States" else "others")
+
     if args.merge_gain_loss:
         print("capital_gain: Drop capital-gain column")
         print("capital_loss: Drop capital-loss column")
@@ -160,27 +185,5 @@ def preprocess(df, args):
         if args.trans_fnlwgt == "log":
             print("fnlwgt: Log transform")
             df["fnlwgt"] = df["fnlwgt"].map(np.log)
-
-    # # EDA
-    # df["fnlwgt"] = df["fnlwgt"].map(np.log)
-    # # df["fnlwgt"] = df["fnlwgt"].map(lambda x: 1/x)
-    # cols = df.columns.tolist()
-    # fig, ax = plt.subplots(4,4, figsize=(12, 8))
-    # plt.subplots_adjust(left=0.1, bottom=0.05, right=0.95, top=0.9, wspace=0.3, hspace=0.5)
-
-    # for i, col in enumerate(cols):
-    #     r = i // 4
-    #     c = i % 4
-    #     if not isinstance(df[col][0], str):
-    #         df[col].plot(kind="hist", ax=ax[r, c])
-    #         ax[r, c].set_title(col)
-    #     else:
-    #         count = df[col].value_counts()
-    #         # print(type(count), count.iloc[1])
-    #         df[col].value_counts().plot.bar(ax=ax[r, c])
-    #         ax[r, c].set_title(col)
-    
-    # plt.show()
-    
 
     return df
