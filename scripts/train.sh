@@ -13,3 +13,8 @@ python train.py \
     --merge_country \
     --merge_workclass \
     --cross_val \
+    --use_logitic_regression \
+    --use_neural_network \
+    --use_xgboost \
+    --use_random_forest \
+    --use_svm \

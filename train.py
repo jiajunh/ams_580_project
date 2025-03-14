@@ -9,7 +9,7 @@ from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from sklearn.linear_model import LogisticRegression
 
 
-from utils import set_seed, preprocess
+from utils import set_seed, preprocess, compute_scores
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -26,6 +26,12 @@ def parse_args():
     parser.add_argument("--merge_country", action="store_true")
     parser.add_argument("--merge_workclass", action="store_true")
     parser.add_argument("--trans_fnlwgt", default=None, choices=["log"])
+
+    parser.add_argument("--use_logitic_regression", action="store_true")
+    parser.add_argument("--use_neural_network", action="store_true")
+    parser.add_argument("--use_xgboost", action="store_true")
+    parser.add_argument("--use_random_forest", action="store_true")
+    parser.add_argument("--use_svm", action="store_true")
 
     parser.add_argument("--train_or_test", default="train", type=str)
 
@@ -69,6 +75,7 @@ def onehot_or_label(cols):
             label_col.append(col)
     return num_col, cat_col, label_col
 
+
 if __name__ == '__main__':
     args = parse_args()
     # set_seed(args.seed)
@@ -98,28 +105,43 @@ if __name__ == '__main__':
         ],
         remainder="passthrough"
     )    
+
     X_train_all = df_train.drop(columns="income")
     Y_train_all = df_train["income"]
 
     X_test = df_test.drop(columns="income")
     Y_test = df_test["income"]
 
-    print(X_train_all.shape)
-    X_train_processed = preprocessor.fit_transform(X_train_all)
-    X_test_processed = preprocessor.transform(X_test)
-    print(X_train_processed.shape)
+    X_train_processed = pd.DataFrame(preprocessor.fit_transform(X_train_all).toarray())
+    X_test_processed = pd.DataFrame(preprocessor.transform(X_test).toarray())
+
+    best_models = {
+        "best_logistic_regression_model": None,
+        "best_neural_network": None,
+        "best_xgboost": None,
+        "best_random_forest": None,
+        "best_svm": None,
+    }
 
     if args.cross_val:
         print("*"*20, f"Using {args.n_splits}-fold cross validations", "*"*20)
         skf = StratifiedKFold(n_splits=args.n_splits, shuffle=True, random_state=args.seed)
-        for i, (train_index, val_index) in enumerate(skf.split(X_train_all, Y_train_all)):
+        for i, (train_index, val_index) in enumerate(skf.split(X_train_processed, Y_train_all)):
             print("-"*20, f"Fold {i}", "-"*20)
-            print(f"{len(train_index)} training data, {len(val_index)} validation data")
-            X_train = X_train_all.iloc[train_index]
+            print(f"{len(X_train_processed)} training data, {len(val_index)} validation data")
+            X_train = X_train_processed.iloc[train_index]
             Y_train = Y_train_all.iloc[train_index]
-            X_val = X_train_all.iloc[val_index]
+            X_val = X_train_processed.iloc[val_index]
             Y_val = Y_train_all.iloc[val_index]
+
+            if args.use_logitic_regression:
+                print(print("-"*20, "Logistic Model", "-"*20))
+                lr_model = LogisticRegression(random_state=args.seed)
+                clf = LogisticRegression(random_state=0).fit(X_train, Y_train)
+                y_pred = clf.predict(X_val)
+                cm, precision, recall, specificity, accuracy = compute_scores(Y_val, y_pred)
+                
+                
+
     else:
         print("*"*20, "Not using cross validations", "*"*20)
-        X_train = X_train_all
-        Y_train = Y_train_all

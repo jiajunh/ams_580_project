@@ -3,6 +3,7 @@ import random
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix
 
 
 def set_seed(seed=42):
@@ -187,3 +188,19 @@ def preprocess(df, args):
             df["fnlwgt"] = df["fnlwgt"].map(np.log)
 
     return df
+
+
+
+def compute_scores(y, pred):
+    cm =  confusion_matrix(y, pred)
+    TP = cm[0,0]
+    FP = cm[1,0]
+    FN = cm[0,1]
+    TN = cm[1,1]
+    precision = 1.0 * TP / (TP + FP)
+    recall = 1.0 * TP / (TP + FN)
+    specificity = 1.0 * TN / (TN + FP) 
+    accuracy = 1.0 * (TP + TN) / (TP + TN + FP + FN)
+    # print(f"Confusion Matrix: TP={TP}, FN={FN}, FP={FP}, TN={TN}")
+    print(f"Accuracy: {accuracy:.4f}, Sensitivity: {recall:.4f}, Specificity: {specificity:.4f}")
+    return cm, precision, recall, specificity, accuracy
