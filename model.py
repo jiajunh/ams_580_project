@@ -27,7 +27,7 @@ def train_logistic_model(X_train, Y_train, args):
 
 def train_xgboost(X_train, Y_train, args):
     model = XGBClassifier(n_estimators=200,
-                          max_depth=2, 
+                          max_depth=4, 
                           learning_rate=0.1, 
                           min_child_weight=2)
     model.fit(X_train, Y_train)

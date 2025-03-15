@@ -7,6 +7,7 @@ import pandas as pd
 from sklearn.model_selection import StratifiedKFold
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder, StandardScaler
+from imblearn.over_sampling import SMOTE
 
 
 from utils import set_seed, preprocess, compute_scores, update_best_model, get_saved_model
@@ -19,7 +20,10 @@ def parse_args():
     parser.add_argument("--seed", default=42, type=int)
     parser.add_argument("--cross_val", action="store_true")
     parser.add_argument("--n_splits", default=5, type=int)
-    parser.add_argument("--use_scale", action="store_true")
+
+    # SMOTE even get worse result, easier to overfit
+    parser.add_argument("--use_smote", action="store_true")
+    parser.add_argument("--remove_outlier", action="store_true")
 
     parser.add_argument("--missing", default=None, choices=["mode", "drop"])
     parser.add_argument("--merge_edu", action="store_true")
@@ -100,27 +104,32 @@ if __name__ == '__main__':
     print("Catagorical features: ", cat_cols)
     print("Label features: ", label_cols)
 
+    use_scale = {
+        "logistic_regression": True,
+        "neural_network": True,
+        "xgboost": False,
+        "random_forest": False,
+        "svm": True,
+    }
 
-    if args.use_scale:
-        preprocessor = ColumnTransformer(
-            transformers=[
-                ("onehot", OneHotEncoder(), cat_cols),
-                ("label", LabelEncoder(), label_cols),
-                ('scaler', StandardScaler(), num_cols),
-                # ("numeric", "passthrough", num_cols),
-            ],
-            remainder="passthrough"
-        )
-    else:
-        preprocessor = ColumnTransformer(
-            transformers=[
-                ("onehot", OneHotEncoder(), cat_cols),
-                ("label", LabelEncoder(), label_cols),
-                # ('scaler', StandardScaler(), num_cols),
-                ("numeric", "passthrough", num_cols),
-            ],
-            remainder="passthrough"
-        )
+    preprocessor_scale = ColumnTransformer(
+        transformers=[
+            ("onehot", OneHotEncoder(), cat_cols),
+            ("label", LabelEncoder(), label_cols),
+            ('scaler', StandardScaler(), num_cols),
+            # ("numeric", "passthrough", num_cols),
+        ],
+        remainder="passthrough"
+    )
+    preprocessor_pass = ColumnTransformer(
+        transformers=[
+            ("onehot", OneHotEncoder(), cat_cols),
+            ("label", LabelEncoder(), label_cols),
+            # ('scaler', StandardScaler(), num_cols),
+            ("numeric", "passthrough", num_cols),
+        ],
+        remainder="passthrough"
+    )
 
     X_train_all = df_train.drop(columns="income")
     Y_train_all = df_train["income"]
@@ -128,10 +137,24 @@ if __name__ == '__main__':
     X_test = df_test.drop(columns="income")
     Y_test = df_test["income"]
 
-    X_train_processed = pd.DataFrame(preprocessor.fit_transform(X_train_all).toarray())
-    X_test = pd.DataFrame(preprocessor.transform(X_test).toarray())
+    X_train_scale = pd.DataFrame(preprocessor_scale.fit_transform(X_train_all).toarray())
+    X_train_pass = pd.DataFrame(preprocessor_pass.fit_transform(X_train_all).toarray())
+    X_test_scale = pd.DataFrame(preprocessor_scale.transform(X_test).toarray())
+    X_test_pass = pd.DataFrame(preprocessor_pass.transform(X_test).toarray())
 
-    args.input_dim = X_train_processed.shape[1]
+    Y_train_scale = Y_train_all
+    Y_train_pass = Y_train_all
+
+    if args.use_smote:
+        print("-"*20, "Using SMOTE", "-"*20)
+        print(f"Original training data, total:{Y_train_all.shape[0]}, 1:{sum(Y_train_all==1)}, 0:{sum(Y_train_all==0)}")
+        sm = SMOTE(random_state=args.seed)
+        X_train_scale, Y_train_scale = sm.fit_resample(X_train_scale, Y_train_all)
+        sm = SMOTE(random_state=args.seed)
+        X_train_pass, Y_train_pass = sm.fit_resample(X_train_pass, Y_train_all)
+        print(f"After SMOTE, total:{Y_train_scale.shape[0]}, 1:{sum(Y_train_scale==1)}, 0:{sum(Y_train_scale==0)}")
+
+    args.input_dim = X_train_scale.shape[1]
     args.nn_model = Net(input_size=args.input_dim)
 
     best_models = {
@@ -148,21 +171,29 @@ if __name__ == '__main__':
         if args.cross_val:
             print("*"*20, f"Using {args.n_splits}-fold cross validations", "*"*20)
             skf = StratifiedKFold(n_splits=args.n_splits, shuffle=True, random_state=args.seed)
-            for i, (train_index, val_index) in enumerate(skf.split(X_train_processed, Y_train_all)):
+            for i, (train_index, val_index) in enumerate(skf.split(X_train_scale, Y_train_scale)):
                 print("-"*20, f"Fold {i}", "-"*20)
-                print(f"{len(X_train_processed)} training data, {len(val_index)} validation data")
-                X_train = X_train_processed.iloc[train_index]
-                Y_train = Y_train_all.iloc[train_index]
-                X_val = X_train_processed.iloc[val_index]
-                Y_val = Y_train_all.iloc[val_index]
+                print(f"{len(X_train_scale)} training data, {len(val_index)} validation data")
+                
+                X_train_s = X_train_scale.iloc[train_index]
+                X_train_p = X_train_pass.iloc[train_index]
+                Y_train_s = Y_train_scale.iloc[train_index]
+                Y_train_p = Y_train_pass.iloc[train_index]
+                
+                X_val_s = X_train_scale.iloc[val_index]
+                X_val_p = X_train_pass.iloc[val_index]
+                Y_val_s = Y_train_scale.iloc[val_index]
+                Y_val_p = Y_train_pass.iloc[val_index]
 
                 # Logistic Regression
                 if args.use_logitic_regression:
                     print("-"*20, "Training Logistic Model", "-"*20)
                     start_time = time.time()
+                    X_train, X_val, Y_train, Y_val = (X_train_s, X_val_s, Y_train_s, Y_val_s) if use_scale["logistic_regression"] else (X_train_p, X_val_p, Y_train_p, Y_val_p)
+                    scale_or_path = "scale" if use_scale["logistic_regression"] else "path"
                     lr_model = train_logistic_model(X_train, Y_train, args)
                     end_time = time.time()
-                    print(f"Train logitic_regression model, using {end_time - start_time :.2}s")
+                    print(f"Train logistic_regression model with {scale_or_path} data, using {end_time - start_time :.3f}s")
                     y_pred = lr_model.predict(X_val)
                     scores = compute_scores(Y_val, y_pred)
                     best_models = update_best_model(best_models, "logistic_regression", lr_model, scores, args)
@@ -171,9 +202,11 @@ if __name__ == '__main__':
                 if args.use_svm:
                     print("-"*20, "Training SVM Model", "-"*20)
                     start_time = time.time()
+                    X_train, X_val, Y_train, Y_val = (X_train_s, X_val_s, Y_train_s, Y_val_s) if use_scale["svm"] else (X_train_p, X_val_p, Y_train_p, Y_val_p)
+                    scale_or_path = "scale" if use_scale["svm"] else "path"
                     svm_model = train_svm_model(X_train, Y_train, args)
                     end_time = time.time()
-                    print(f"Train svm model, using {end_time - start_time :.2}s")
+                    print(f"Train svm model with {scale_or_path} data, using {end_time - start_time :.3f}s")
                     y_pred = svm_model.predict(X_val)
                     scores = compute_scores(Y_val, y_pred)
                     best_models = update_best_model(best_models, "svm", svm_model, scores, args)
@@ -182,9 +215,11 @@ if __name__ == '__main__':
                 if args.use_random_forest:
                     print("-"*20, "Training Random Forest", "-"*20)
                     start_time = time.time()
+                    X_train, X_val, Y_train, Y_val = (X_train_s, X_val_s, Y_train_s, Y_val_s) if use_scale["random_forest"] else (X_train_p, X_val_p, Y_train_p, Y_val_p)                    
+                    scale_or_path = "scale" if use_scale["random_forest"] else "path"
                     rf_model = train_random_forest(X_train, Y_train, args)
                     end_time = time.time()
-                    print(f"Train random forest, using {end_time - start_time :.2}s")
+                    print(f"Train random forest with {scale_or_path} data, using {end_time - start_time :.3f}s")
                     y_pred = rf_model.predict(X_val)
                     scores = compute_scores(Y_val, y_pred)
                     best_models = update_best_model(best_models, "random_forest", rf_model, scores, args)
@@ -192,9 +227,11 @@ if __name__ == '__main__':
                 if args.use_neural_network:
                     print("-"*20, "Training Neural Network", "-"*20)
                     start_time = time.time()
+                    X_train, X_val, Y_train, Y_val = (X_train_s, X_val_s, Y_train_s, Y_val_s) if use_scale["neural_network"] else (X_train_p, X_val_p, Y_train_p, Y_val_p)                    
+                    scale_or_path = "scale" if use_scale["neural_network"] else "path"
                     nn_model = train_neural_network(X_train, Y_train, X_val, Y_val, args)
                     end_time = time.time()
-                    print(f"Train neural network, using {end_time - start_time :.2}s")
+                    print(f"Train neural network with {scale_or_path} data, using {end_time - start_time :.3f}s")
                     y, pred = eval_nn_model(nn_model, X_val, Y_val)
                     scores = compute_scores(y, pred)
                     best_models = update_best_model(best_models, "neural_network", nn_model, scores, args)
@@ -202,9 +239,11 @@ if __name__ == '__main__':
                 if args.use_xgboost:
                     print("-"*20, "Training XGBoost", "-"*20)
                     start_time = time.time()
+                    X_train, X_val, Y_train, Y_val = (X_train_s, X_val_s, Y_train_s, Y_val_s) if use_scale["xgboost"] else (X_train_p, X_val_p, Y_train_p, Y_val_p)             
+                    scale_or_path = "scale" if use_scale["xgboost"] else "path"
                     xgboost_model = train_xgboost(X_train, Y_train, args)
                     end_time = time.time()
-                    print(f"Train xgboost, using {end_time - start_time :.2}s")
+                    print(f"Train xgboost with {scale_or_path} data, using {end_time - start_time :.3f}s")
                     y_pred = xgboost_model.predict(X_val)
                     scores = compute_scores(Y_val, y_pred)
                     best_models = update_best_model(best_models, "xgboost", xgboost_model, scores, args)
@@ -225,12 +264,15 @@ if __name__ == '__main__':
         if best_models[model_name] is not None:
             model = best_models[model_name]["model"]
             print("-"*20, f"{model_name}", "-"*20)
+
+            X_test_data = X_test_scale if use_scale[model_name] else X_test_pass
+
             if model_name in ["logistic_regression", "random_forest", "svm", "xgboost"]:
-                y_pred = model.predict(X_test)
+                y_pred = model.predict(X_test_data)
                 scores = compute_scores(Y_test, y_pred)
                 predictions[model_name] = y_pred
             elif model_name in ["neural_network"]:
-                y, pred = eval_nn_model(model, X_test, Y_test)
+                y, pred = eval_nn_model(model, X_test_data, Y_test)
                 scores = compute_scores(y, pred)
                 predictions[model_name] = pred
 

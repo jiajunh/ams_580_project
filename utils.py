@@ -99,6 +99,7 @@ def preprocess(df, args):
         "State-gov": "State-gov",
         "Without-pay": "no_income", 
         "Never-worked": "no_income",
+        "?": "?",
     }
 
     merge_edu_cfg = {
@@ -148,14 +149,19 @@ def preprocess(df, args):
     df = df.drop(columns="education-num")
 
     if args.missing:
-        if args.missing == "mode" or args.train_or_test == "test":
+        if args.missing == "mode":
             for col in missing_cols:
                 print(f"{col}: Replacing missing values with mode")
                 df[col] = df[col].map(lambda x: missing_mode[col] if x == "?" else x)
-        elif args.missing == "drop" and args.train_or_test == "train":
-            for col in missing_cols:
-                print(f"{col}: Dropping missing values")
-                df = df[df[col] != "?"]
+        elif args.missing == "drop":
+            if args.train_or_test == "train":
+                for col in missing_cols:
+                    print(f"{col}: Dropping missing values")
+                    df = df[df[col] != "?"]
+            else:
+                for col in missing_cols:
+                    print(f"{col}: Replacing missing values with mode")
+                    df[col] = df[col].map(lambda x: missing_mode[col] if x == "?" else x)
 
     if args.merge_workclass:
         print("workclass: Merging workclass")

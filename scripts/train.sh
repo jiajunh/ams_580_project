@@ -4,7 +4,6 @@ python train.py \
     --data_dir "./data/" \
     --seed 42 \
     --train_or_test "train" \
-    --missing "mode" \
     --trans_fnlwgt "log" \
     --merge_edu \
     --merge_marital \
@@ -13,10 +12,12 @@ python train.py \
     --merge_country \
     --merge_workclass \
     --cross_val \
-    --use_scale \
-    --use_xgboost \
     --use_neural_network \
+    --use_xgboost \
     --use_logitic_regression \
     --use_random_forest \
     --use_svm \
+    # --missing "mode" \
+    # --use_smote \
+
     
