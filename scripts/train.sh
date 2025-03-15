@@ -13,9 +13,9 @@ python train.py \
     --merge_country \
     --merge_workclass \
     --cross_val \
-    --use_logitic_regression \
+    --use_scale \
     --use_neural_network \
-    --use_xgboost \
+    --use_logitic_regression \
     --use_random_forest \
     --use_svm \
-    --use_scale \
+    --use_xgboost \

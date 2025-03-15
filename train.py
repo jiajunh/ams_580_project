@@ -1,4 +1,5 @@
 import os
+import time
 import argparse
 import numpy as np
 import pandas as pd
@@ -8,8 +9,8 @@ from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder, StandardScaler
 
 
-from utils import set_seed, preprocess, compute_scores, update_best_model, load_model
-from model import train_logistic_model
+from utils import set_seed, preprocess, compute_scores, update_best_model, get_saved_model
+from model import train_logistic_model, train_svm_model, train_random_forest, train_neural_network, eval_nn_model, Net
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -130,7 +131,8 @@ if __name__ == '__main__':
     X_train_processed = pd.DataFrame(preprocessor.fit_transform(X_train_all).toarray())
     X_test = pd.DataFrame(preprocessor.transform(X_test).toarray())
 
-    StandardScaler
+    args.input_dim = X_train_processed.shape[1]
+    args.nn_model = Net(input_size=args.input_dim)
 
     best_models = {
         "logistic_regression": None,
@@ -139,6 +141,7 @@ if __name__ == '__main__':
         "random_forest": None,
         "svm": None,
     }
+    get_saved_model(best_models, args)
 
     if args.train_or_test == "train":
         print("*"*20, f"Training Step", "*"*20)
@@ -153,22 +156,61 @@ if __name__ == '__main__':
                 X_val = X_train_processed.iloc[val_index]
                 Y_val = Y_train_all.iloc[val_index]
 
+                # Logistic Regression
                 if args.use_logitic_regression:
                     print("-"*20, "Training Logistic Model", "-"*20)
+                    start_time = time.time()
                     lr_model = train_logistic_model(X_train, Y_train, args)
+                    end_time = time.time()
+                    print(f"Train logitic_regression model, using {end_time - start_time :.2}s")
                     y_pred = lr_model.predict(X_val)
                     scores = compute_scores(Y_val, y_pred)
                     best_models = update_best_model(best_models, "logistic_regression", lr_model, scores, args)
+
+                # SVM
+                if args.use_svm:
+                    print("-"*20, "Training SVM Model", "-"*20)
+                    start_time = time.time()
+                    svm_model = train_svm_model(X_train, Y_train, args)
+                    end_time = time.time()
+                    print(f"Train svm model, using {end_time - start_time :.2}s")
+                    y_pred = svm_model.predict(X_val)
+                    scores = compute_scores(Y_val, y_pred)
+                    best_models = update_best_model(best_models, "svm", svm_model, scores, args)
+
+                # Random forest
+                if args.use_random_forest:
+                    print("-"*20, "Training Random Forest", "-"*20)
+                    start_time = time.time()
+                    rf_model = train_random_forest(X_train, Y_train, args)
+                    end_time = time.time()
+                    print(f"Train random forest, using {end_time - start_time :.2}s")
+                    y_pred = rf_model.predict(X_val)
+                    scores = compute_scores(Y_val, y_pred)
+                    best_models = update_best_model(best_models, "random_forest", rf_model, scores, args)
+
+                if args.use_neural_network:
+                    print("-"*20, "Training Neural Network", "-"*20)
+                    start_time = time.time()
+                    nn_model = train_neural_network(X_train, Y_train, X_val, Y_val, args)
+                    end_time = time.time()
+                    print(f"Train neural network, using {end_time - start_time :.2}s")
+                    scores = eval_nn_model(nn_model, X_val, Y_val)
+                    best_models = update_best_model(best_models, "neural_network", nn_model, scores, args)
+
         else:
             print("*"*20, "Not using cross validations", "*"*20)
 
         
     print("*"*20, f"Testing Step", "*"*20)
-    model_paths = os.listdir(args.model_dir)
-    for model_path in model_paths:
-        model = load_model(os.path.join(args.model_dir, model_path))
-        model_name = model_path.split(".")[0][:-5]
-        if model_name == "logistic_regression":
+    for model_name in best_models.keys():
+        if best_models[model_name] is not None:
+            model = best_models[model_name]["model"]
             print("-"*20, f"{model_name}", "-"*20)
-            y_pred = model.predict(X_test)
-            scores = compute_scores(Y_test, y_pred)
+            if model_name in ["logistic_regression", "random_forest", "svm"]:
+                y_pred = model.predict(X_test)
+                scores = compute_scores(Y_test, y_pred)
+            elif model_name in ["neural_network"]:
+                scores = eval_nn_model(model, X_test, Y_test)
+            
+

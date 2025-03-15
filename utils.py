@@ -11,6 +11,7 @@ from sklearn.metrics import confusion_matrix
 def set_seed(seed=42):
     np.random.seed(seed)
     random.seed(seed)
+    torch.manual_seed(seed)
 
 
 def preprocess(df, args):
@@ -208,7 +209,7 @@ def compute_scores(y, pred):
     return cm, precision, recall, specificity, accuracy
 
 
-def update_best_model(model_cfg, model_name, model, scores, args):
+def update_best_model(model_cfg, model_name, model, scores, args, save=True):
     cm, precision, recall, specificity, accuracy = scores
     if model_cfg[model_name] is None or model_cfg[model_name]["acc"] < accuracy:
         model_cfg[model_name] = {
@@ -220,23 +221,28 @@ def update_best_model(model_cfg, model_name, model, scores, args):
             "specificity": specificity,
         }
         print(f"Model updates: current {model_name} is the best model, acc={accuracy:.4f}")
-        save_model(model_name, model, accuracy, args)
+        if save:
+            save_model(model_name, model, accuracy, args)
     return model_cfg
 
 
 def save_model(model_name, model, acc, args):
     model_suffix = {
         "logistic_regression": ".pkl",
-        "neural_network": None,
+        "neural_network": ".pt",
         "xgboost": None,
-        "random_forest": None,
+        "random_forest": ".pkl",
         "svm": ".pkl",
     }
     model_path = os.path.join(args.model_dir, model_name)
     model_path = model_path +  f"_{int(acc*10000)}" + model_suffix[model_name]
     if model_suffix[model_name]:
-        with open(model_path, "wb") as file:
-            pickle.dump(model, file)
+        if model_suffix[model_name] in [".pkl"]:
+            with open(model_path, "wb") as file:
+                pickle.dump(model, file)
+        elif model_suffix[model_name] in [".pt"]:
+            torch.save(model.state_dict(), model_path)
+
     print(f"{model_name} model has saved to {model_path}")
 
 
@@ -244,3 +250,41 @@ def load_model(model_path):
     with open(model_path, 'rb') as file:
         model = pickle.load(file)
     return model
+
+def load_nn_model(model_path, args):
+    model = args.nn_model
+    model.load_state_dict(torch.load(model_path, weights_only=True))
+    model.eval()
+    return model
+
+def get_saved_model(best_models, args):
+    model_paths = os.listdir(args.model_dir)
+    for path in model_paths:
+        if path.split(".")[-1] in ["pkl"]:
+            temp_name = path.split(".")[0]
+            temp_model_name = temp_name[0:-5]
+            temp_acc = int(temp_name[-4:])
+            if best_models[temp_model_name] is None or best_models[temp_model_name]["acc"] < temp_acc:
+                best_models[temp_model_name] = {
+                    "model": load_model(os.path.join(args.model_dir, path)),
+                    "acc": 1.0 * temp_acc / 10000,
+                    "confusion_matrix": 0.0,
+                    "precision": 0.0,
+                    "recall": 0.0,
+                    "specificity": 0.0,
+                }
+        elif path.split(".")[-1] in ["pt"]:
+            temp_name = path.split(".")[0]
+            temp_model_name = temp_name[0:-5]
+            temp_acc = int(temp_name[-4:])
+            if best_models[temp_model_name] is None or best_models[temp_model_name]["acc"] < temp_acc:
+                best_models[temp_model_name] = {
+                    "model": load_nn_model(os.path.join(args.model_dir, path), args),
+                    "acc": 1.0 * temp_acc / 10000,
+                    "confusion_matrix": 0.0,
+                    "precision": 0.0,
+                    "recall": 0.0,
+                    "specificity": 0.0,
+                }
+
+    return best_models
