@@ -5,6 +5,7 @@ python train.py \
     --seed 42 \
     --train_or_test "train" \
     --trans_fnlwgt "log" \
+    --trans_capital "log" \
     --merge_edu \
     --merge_marital \
     --merge_gain_loss \
@@ -12,6 +13,7 @@ python train.py \
     --merge_country \
     --merge_workclass \
     --cross_val \
+    --remove_outlier \
     --use_neural_network \
     --use_xgboost \
     --use_logitic_regression \

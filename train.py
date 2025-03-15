@@ -10,7 +10,7 @@ from sklearn.preprocessing import LabelEncoder, OneHotEncoder, StandardScaler
 from imblearn.over_sampling import SMOTE
 
 
-from utils import set_seed, preprocess, compute_scores, update_best_model, get_saved_model
+from utils import set_seed, preprocess, compute_scores, update_best_model, get_saved_model, remove_outliers
 from model import train_logistic_model, train_svm_model, train_random_forest, train_neural_network, eval_nn_model, Net, train_xgboost
 
 def parse_args():
@@ -24,6 +24,7 @@ def parse_args():
     # SMOTE even get worse result, easier to overfit
     parser.add_argument("--use_smote", action="store_true")
     parser.add_argument("--remove_outlier", action="store_true")
+    parser.add_argument("--outlier_strategy", default="sigma", choices=["iqr", "sigma"])
 
     parser.add_argument("--missing", default=None, choices=["mode", "drop"])
     parser.add_argument("--merge_edu", action="store_true")
@@ -33,6 +34,7 @@ def parse_args():
     parser.add_argument("--merge_country", action="store_true")
     parser.add_argument("--merge_workclass", action="store_true")
     parser.add_argument("--trans_fnlwgt", default=None, choices=["log"])
+    parser.add_argument("--trans_capital", default=None, choices=["log"])
 
     parser.add_argument("--use_logitic_regression", action="store_true")
     parser.add_argument("--use_neural_network", action="store_true")
@@ -82,6 +84,7 @@ def onehot_or_label(cols):
             label_col.append(col)
     return num_col, cat_col, label_col
 
+
 if __name__ == '__main__':
     args = parse_args()
     set_seed(args.seed)
@@ -95,6 +98,9 @@ if __name__ == '__main__':
     df_train = preprocess(train_data, args)
     args.pre_data = "test"
     df_test = preprocess(test_data, args)
+
+    if args.remove_outlier:
+        df_train = remove_outliers(df_train, args)
 
     print("*"*20, "Encode data", "*"*20)
     cols = df_train.columns.tolist()

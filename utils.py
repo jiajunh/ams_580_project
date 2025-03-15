@@ -78,7 +78,7 @@ def preprocess(df, args):
     numerical = [
         "age",
         "fnlwgt",
-        "education",
+        "education-num",
         "capital-gain",
         "capital-loss",
         "capital",
@@ -196,9 +196,49 @@ def preprocess(df, args):
             print("fnlwgt: Log transform")
             df["fnlwgt"] = df["fnlwgt"].map(np.log)
 
+    if args.trans_capital:
+        if args.trans_fnlwgt == "log":
+            print("capital: Log transform")
+            if "capital" in df.columns.tolist():
+                df["capital"] = df["capital"].map(lambda x: np.log(x - np.min(df["capital"]) + 1))
+            if "capital-gain" in df.columns.tolist():
+                df["capital-gain"] = df["capital-gain"].map(lambda x: np.log(x - np.min(df["capital-gain"]) + 1))
+            if "capital-loss" in df.columns.tolist():
+                df["capital-loss"] = df["capital-loss"].map(lambda x: np.log(x - np.min(df["capital-loss"]) + 1))
+
     return df
 
 
+def remove_outliers(df, args):
+    print("-"*20, "Start to remove outliers", "-"*20)
+    feature_cfg = {
+        "age",
+        "fnlwgt",
+        "education-num",
+        "capital-gain",
+        "capital-loss",
+        "capital",
+        "hours-per-week",
+    }
+    cols = df.columns.tolist()
+    for col in cols:
+        if col in feature_cfg:
+            prev_length = df.shape[0]
+            if args.outlier_strategy == "sigma":
+                mu = df[col].mean()
+                std = df[col].std()
+                lb = mu - 3.5 * std
+                ub = mu + 3.5 * std
+            elif args.outlier_strategy == "iqr":
+                q1 = df[col].quantile(0.25)
+                mu = df[col].quantile(0.5)
+                q3 = df[col].quantile(0.75)
+                iqr = q3 - q1
+                lb = q1 - 5 * iqr
+                ub = q1 + 5 * iqr
+            df = df[(df[col] >= lb) & (df[col] <= ub)]
+            print(f"Col: {col}, filter {prev_length-df.shape[0]} data")
+    return df
 
 def compute_scores(y, pred):
     cm =  confusion_matrix(y, pred)
