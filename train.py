@@ -10,7 +10,7 @@ from sklearn.preprocessing import LabelEncoder, OneHotEncoder, StandardScaler
 
 
 from utils import set_seed, preprocess, compute_scores, update_best_model, get_saved_model
-from model import train_logistic_model, train_svm_model, train_random_forest, train_neural_network, eval_nn_model, Net
+from model import train_logistic_model, train_svm_model, train_random_forest, train_neural_network, eval_nn_model, Net, train_xgboost
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -195,22 +195,54 @@ if __name__ == '__main__':
                     nn_model = train_neural_network(X_train, Y_train, X_val, Y_val, args)
                     end_time = time.time()
                     print(f"Train neural network, using {end_time - start_time :.2}s")
-                    scores = eval_nn_model(nn_model, X_val, Y_val)
+                    y, pred = eval_nn_model(nn_model, X_val, Y_val)
+                    scores = compute_scores(y, pred)
                     best_models = update_best_model(best_models, "neural_network", nn_model, scores, args)
-
+                
+                if args.use_xgboost:
+                    print("-"*20, "Training XGBoost", "-"*20)
+                    start_time = time.time()
+                    xgboost_model = train_xgboost(X_train, Y_train, args)
+                    end_time = time.time()
+                    print(f"Train xgboost, using {end_time - start_time :.2}s")
+                    y_pred = xgboost_model.predict(X_val)
+                    scores = compute_scores(Y_val, y_pred)
+                    best_models = update_best_model(best_models, "xgboost", xgboost_model, scores, args)
         else:
             print("*"*20, "Not using cross validations", "*"*20)
 
         
     print("*"*20, f"Testing Step", "*"*20)
+    predictions = {}
+    ensemble_weight = {
+        "logistic_regression": 0.15,
+        "neural_network": 0.2,
+        "xgboost": 0.3,
+        "random_forest": 0.15,
+        "svm": 0.2,
+    }
     for model_name in best_models.keys():
         if best_models[model_name] is not None:
             model = best_models[model_name]["model"]
             print("-"*20, f"{model_name}", "-"*20)
-            if model_name in ["logistic_regression", "random_forest", "svm"]:
+            if model_name in ["logistic_regression", "random_forest", "svm", "xgboost"]:
                 y_pred = model.predict(X_test)
                 scores = compute_scores(Y_test, y_pred)
+                predictions[model_name] = y_pred
             elif model_name in ["neural_network"]:
-                scores = eval_nn_model(model, X_test, Y_test)
-            
+                y, pred = eval_nn_model(model, X_test, Y_test)
+                scores = compute_scores(y, pred)
+                predictions[model_name] = pred
 
+    print("*"*20, "Final Ensemble Step", "*"*20)
+    total_weight = np.sum([ensemble_weight[model_name] for model_name in predictions.keys()])
+    ensemble_pred = np.zeros(Y_test.shape)
+    final_weight = "Final ensembled model = "
+    for model_name in predictions.keys():
+        final_weight = final_weight + f"{ensemble_weight[model_name] / total_weight :.3f} * {model_name} + "
+        ensemble_pred += ensemble_weight[model_name] / total_weight * predictions[model_name]
+    ensemble_pred = (ensemble_pred > 0.5).astype(int)
+    if final_weight:
+        final_weight = final_weight[0:-2]
+        print(final_weight)
+    scores = compute_scores(Y_test, ensemble_pred)

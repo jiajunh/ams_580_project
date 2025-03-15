@@ -3,7 +3,7 @@ set -ex
 python train.py \
     --data_dir "./data/" \
     --seed 42 \
-    --train_or_test "test" \
+    --train_or_test "train" \
     --missing "mode" \
     --trans_fnlwgt "log" \
     --merge_edu \
@@ -14,8 +14,9 @@ python train.py \
     --merge_workclass \
     --cross_val \
     --use_scale \
+    --use_xgboost \
     --use_neural_network \
     --use_logitic_regression \
     --use_random_forest \
     --use_svm \
-    --use_xgboost \
+    

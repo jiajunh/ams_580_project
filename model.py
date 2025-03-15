@@ -8,6 +8,8 @@ from torch.utils.data import DataLoader, Dataset
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
+from xgboost import XGBClassifier
+
 
 from utils import compute_scores
 
@@ -21,6 +23,16 @@ def train_logistic_model(X_train, Y_train, args):
                             #    solver="saga",
                                ).fit(X_train, Y_train)
     return model
+
+
+def train_xgboost(X_train, Y_train, args):
+    model = XGBClassifier(n_estimators=200,
+                          max_depth=2, 
+                          learning_rate=0.1, 
+                          min_child_weight=2)
+    model.fit(X_train, Y_train)
+    return model
+
 
 
 def train_svm_model(X_train, Y_train, args):
@@ -88,8 +100,7 @@ def eval_nn_model(model, X_val, Y_val):
         pred = pred.numpy().reshape(y.shape)
         y = y.numpy().astype(int)
         pred = (pred > 0.5).astype(int)
-    scores = compute_scores(y, pred)
-    return scores
+    return y, pred
 
 
 def train_neural_network(X_train, Y_train, X_val, Y_val, args):
@@ -123,7 +134,8 @@ def train_neural_network(X_train, Y_train, X_val, Y_val, args):
             optimizer.step()
             scheduler.step()
 
-        val_scores = eval_nn_model(model, X_val, Y_val)
+        y, pred = eval_nn_model(model, X_val, Y_val)
+        val_scores = compute_scores(y, pred)
         if val_scores[-1] > best_score:
             best_model.load_state_dict(model.state_dict())
             best_score = val_scores[-1]

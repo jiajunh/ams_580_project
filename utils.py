@@ -230,7 +230,7 @@ def save_model(model_name, model, acc, args):
     model_suffix = {
         "logistic_regression": ".pkl",
         "neural_network": ".pt",
-        "xgboost": None,
+        "xgboost": ".pkl",
         "random_forest": ".pkl",
         "svm": ".pkl",
     }
