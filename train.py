@@ -260,11 +260,11 @@ if __name__ == '__main__':
     print("*"*20, f"Testing Step", "*"*20)
     predictions = {}
     ensemble_weight = {
-        "logistic_regression": 0.15,
-        "neural_network": 0.2,
-        "xgboost": 0.3,
-        "random_forest": 0.15,
-        "svm": 0.2,
+        "logistic_regression": 0.0,
+        "neural_network": 0.0,
+        "xgboost": 1.0,
+        "random_forest": 0.0,
+        "svm": 0.0,
     }
     for model_name in best_models.keys():
         if best_models[model_name] is not None:

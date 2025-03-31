@@ -227,8 +227,8 @@ def remove_outliers(df, args):
             if args.outlier_strategy == "sigma":
                 mu = df[col].mean()
                 std = df[col].std()
-                lb = mu - 3.5 * std
-                ub = mu + 3.5 * std
+                lb = mu - 3.6 * std
+                ub = mu + 3.6 * std
             elif args.outlier_strategy == "iqr":
                 q1 = df[col].quantile(0.25)
                 mu = df[col].quantile(0.5)
