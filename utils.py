@@ -107,7 +107,7 @@ def preprocess(df, args):
         "1st-4th": "before_high_school",
         "5th-6th": "before_high_school",
         "7th-8th": "before_high_school",
-        "9th": "before_high_school",
+        "9th": "high_school",
         "10th": "high_school",
         "11th": "high_school",
         "12th": "high_school",
