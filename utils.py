@@ -212,21 +212,21 @@ def preprocess(df, args):
 def remove_outliers(df, args):
     print("-"*20, "Start to remove outliers", "-"*20)
     feature_cfg = {
-        "age",
-        "fnlwgt",
-        "education-num",
-        "capital-gain",
-        "capital-loss",
-        "capital",
-        "hours-per-week",
+        "age": {"mu": 38.560981227686284, "std": 13.622763128883086},
+        "fnlwgt": {"mu": 11.984648125210024, "std": 0.630349936466534},
+        # "education-num": {},
+        # "capital-gain": {},
+        # "capital-loss": {},
+        "capital": {"mu": 8.440271484370996, "std": 0.3762841106207502},
+        "hours-per-week": {"mu": 40.45266192581203, "std": 12.310561060717218},
     }
     cols = df.columns.tolist()
     for col in cols:
-        if col in feature_cfg:
+        if col in feature_cfg.keys():
             prev_length = df.shape[0]
             if args.outlier_strategy == "sigma":
-                mu = df[col].mean()
-                std = df[col].std()
+                mu = feature_cfg[col]["mu"] 
+                std = feature_cfg[col]["std"] # 
                 lb = mu - 3.6 * std
                 ub = mu + 3.6 * std
             elif args.outlier_strategy == "iqr":
@@ -236,9 +236,10 @@ def remove_outliers(df, args):
                 iqr = q3 - q1
                 lb = q1 - 5 * iqr
                 ub = q1 + 5 * iqr
+            df_outlier = df[(df[col] < lb) | (df[col] > ub)]
             df = df[(df[col] >= lb) & (df[col] <= ub)]
             print(f"Col: {col}, filter {prev_length-df.shape[0]} data")
-    return df
+    return df, df_outlier
 
 def compute_scores(y, pred):
     cm =  confusion_matrix(y, pred)

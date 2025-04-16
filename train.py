@@ -24,6 +24,7 @@ def parse_args():
     # SMOTE even get worse result, easier to overfit
     parser.add_argument("--use_smote", action="store_true")
     parser.add_argument("--remove_outlier", action="store_true")
+    parser.add_argument("--train_outlier", action="store_true")
     parser.add_argument("--outlier_strategy", default="sigma", choices=["iqr", "sigma"])
 
     parser.add_argument("--missing", default=None, choices=["mode", "drop"])
@@ -100,7 +101,10 @@ if __name__ == '__main__':
     df_test = preprocess(test_data, args)
 
     if args.remove_outlier:
-        df_train = remove_outliers(df_train, args)
+        df_train, df_train_outlier = remove_outliers(df_train, args)
+    
+    if args.train_outlier:
+        df_test, df_test_outlier = remove_outliers(df_test, args)
 
     print("*"*20, "Encode data", "*"*20)
     cols = df_train.columns.tolist()
