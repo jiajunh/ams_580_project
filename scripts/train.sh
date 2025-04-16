@@ -7,16 +7,14 @@ python train.py \
     --trans_fnlwgt "log" \
     --trans_capital "log" \
     --cross_val \
+    --remove_outlier \
     --merge_country \
     --merge_gain_loss \
     --use_xgboost \
-    --remove_outlier \
-
-
-    # --use_neural_network \
-    # --use_logitic_regression \
-    # --use_random_forest \
-    # --use_svm \
+    --use_neural_network \
+    --use_logitic_regression \
+    --use_random_forest \
+    --use_svm \
     # --missing "mode" \
     # --use_smote \
 
