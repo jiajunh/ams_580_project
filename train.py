@@ -298,3 +298,4 @@ if __name__ == '__main__':
         final_weight = final_weight[0:-2]
         print(final_weight)
     scores = compute_scores(Y_test, ensemble_pred)
+    print(f"Confusion Matrix for test data: \n {scores[0]}")
